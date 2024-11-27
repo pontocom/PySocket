@@ -1,30 +1,45 @@
 import socket
 
-def server_program():
-    # get the hostname
-    host = socket.gethostname()
-    port = 5001  # initiate port no above 1024
+from _thread import *
+import threading
 
-    server_socket = socket.socket()  # get instance
-    # look closely. The bind() function takes tuple as argument
-    server_socket.bind((host, port))  # bind host address and port together
+print_lock = threading.Lock()
 
-    # configure how many client the server can listen simultaneously
-    server_socket.listen(2)
-    conn, address = server_socket.accept()  # accept new connection
-    print("Connection from: " + str(address))
+
+def handle_client(client):
     while True:
-        # receive data stream. it won't accept data packet greater than 1024 bytes
-        data = conn.recv(1024).decode()
+        data = client.recv(1024)
         if not data:
-            # if data is not received break
-            break
-        print("from connected user: " + str(data))
-        data = input(' -> ')
-        conn.send(data.encode())  # send data to the client
+            print('Client disconnected')
 
-    conn.close()  # close the connection
+            print_lock.release()
+            break
+
+        data = data[::-1]
+        client.send(data)
+
+    client.close()
+
+
+def server():
+    host = socket.gethostname()
+    port = 12345
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+
+    print("Server running... waiting for connections...")
+    server_socket.listen(20)
+
+    while True:
+        conn, address = server_socket.accept()
+        print_lock.acquire()
+        print("Connection from: " + str(address))
+
+        start_new_thread(handle_client, (conn,))
+
+    server_socket.close()
 
 
 if __name__ == '__main__':
-    server_program()
+    server()
